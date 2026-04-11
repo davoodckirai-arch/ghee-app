@@ -39,57 +39,75 @@ CREATE TABLE IF NOT EXISTS ghee (
 conn.commit()
 
 # ======================
-# HASH
+# PASSWORD HASH
 # ======================
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 # ======================
-# AUTH
+# REGISTER
 # ======================
 def register():
     st.subheader("📝 Register")
-    u = st.text_input("Username")
-    p = st.text_input("Password", type="password")
+
+    username = st.text_input("New Username", key="reg_user")
+    password = st.text_input("New Password", type="password", key="reg_pass")
 
     if st.button("Register"):
-        if u and p:
-            try:
-                c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (u, hash_password(p)))
-                conn.commit()
-                st.success("Account created")
-            except:
-                st.error("Username exists")
+        if username == "" or password == "":
+            st.warning("Fill all fields")
         else:
-            st.warning("Fill all")
+            try:
+                c.execute(
+                    "INSERT INTO users (username, password) VALUES (?, ?)",
+                    (username, hash_password(password))
+                )
+                conn.commit()
+                st.success("Account created! Now login")
+            except:
+                st.error("Username already exists")
 
+# ======================
+# LOGIN
+# ======================
 def login():
     st.subheader("🔐 Login")
-    u = st.text_input("Username")
-    p = st.text_input("Password", type="password")
+
+    username = st.text_input("Username", key="log_user")
+    password = st.text_input("Password", type="password", key="log_pass")
 
     if st.button("Login"):
-        c.execute("SELECT * FROM users WHERE username=? AND password=?", (u, hash_password(p)))
-        if c.fetchone():
+        c.execute(
+            "SELECT * FROM users WHERE username=? AND password=?",
+            (username, hash_password(password))
+        )
+        user = c.fetchone()
+
+        if user:
             st.session_state.logged_in = True
-            st.session_state.user = u
+            st.session_state.user = username
             st.rerun()
         else:
-            st.error("Invalid login")
+            st.error("Invalid credentials")
 
+# ======================
+# SESSION
+# ======================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
 if not st.session_state.logged_in:
-    m = st.sidebar.selectbox("Menu", ["Login", "Register"])
-    if m == "Register":
+    menu = st.sidebar.selectbox("Menu", ["Login", "Register"])
+
+    if menu == "Register":
         register()
     else:
         login()
+
     st.stop()
 
 # ======================
-# MAIN
+# MAIN APP
 # ======================
 st.title("🧈 Mercy Ghee Management System")
 st.sidebar.success(f"👤 {st.session_state.user}")
@@ -99,132 +117,88 @@ st.sidebar.success(f"👤 {st.session_state.user}")
 # ======================
 st.header("➕ Add Stock")
 
-c1,c2,c3,c4,c5,c6 = st.columns(6)
+c1, c2, c3, c4, c5, c6 = st.columns(6)
 
-add = [
-    c1.number_input("100ml",0),
-    c2.number_input("200ml",0),
-    c3.number_input("500ml",0),
-    c4.number_input("1L",0),
-    c5.number_input("5L",0),
-    c6.number_input("10L",0)
-]
+add_100 = c1.number_input("100ml", 0, key="a100")
+add_200 = c2.number_input("200ml", 0, key="a200")
+add_500 = c3.number_input("500ml", 0, key="a500")
+add_1l  = c4.number_input("1L", 0, key="a1l")
+add_5l  = c5.number_input("5L", 0, key="a5l")
+add_10l = c6.number_input("10L", 0, key="a10l")
 
 if st.button("Add Stock"):
     c.execute("""
-    INSERT INTO ghee (datetime, person, ml100, ml200, ml500, ml1l, ml5l, ml10l, user)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (datetime.now(), "Stock", *add, st.session_state.user))
+        INSERT INTO ghee VALUES (NULL,?,?,?,?,?,?,?,?,?)
+    """, (
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "Stock Added",
+        add_100, add_200, add_500,
+        add_1l, add_5l, add_10l,
+        st.session_state.user
+    ))
     conn.commit()
     st.success("Stock Added")
 
 # ======================
-# LOAD DATA
+# SALE ENTRY
+# ======================
+st.header("🛒 Sale Entry")
+
+person = st.text_input("Customer Name", key="cust")
+
+s1, s2, s3, s4, s5, s6 = st.columns(6)
+
+s_100 = s1.number_input("Sell 100ml", 0, key="s100")
+s_200 = s2.number_input("Sell 200ml", 0, key="s200")
+s_500 = s3.number_input("Sell 500ml", 0, key="s500")
+s_1l  = s4.number_input("Sell 1L", 0, key="s1l")
+s_5l  = s5.number_input("Sell 5L", 0, key="s5l")
+s_10l = s6.number_input("Sell 10L", 0, key="s10l")
+
+if st.button("Add Sale"):
+    if person == "":
+        st.warning("Enter name")
+    else:
+        c.execute("""
+            INSERT INTO ghee VALUES (NULL,?,?,?,?,?,?,?,?,?)
+        """, (
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            person,
+            -s_100, -s_200, -s_500,
+            -s_1l, -s_5l, -s_10l,
+            st.session_state.user
+        ))
+        conn.commit()
+        st.success("Sale Added")
+
+# ======================
+# DATA
 # ======================
 df = pd.read_sql_query("SELECT * FROM ghee", conn)
 
-# SAFE columns
-for col in ["ml100","ml200","ml500","ml1l","ml5l","ml10l"]:
-    if col not in df.columns:
-        df[col] = 0
-
-# ======================
-# DATE FILTER
-# ======================
-st.header("📅 Filter")
-
-if not df.empty:
-    df["datetime"] = pd.to_datetime(df["datetime"])
-    start = st.date_input("From", df["datetime"].min().date())
-    end = st.date_input("To", df["datetime"].max().date())
-
-    df = df[(df["datetime"].dt.date >= start) & (df["datetime"].dt.date <= end)]
-
-# ======================
-# BALANCE
-# ======================
-balance = {
-    "ml100": df["ml100"].sum(),
-    "ml200": df["ml200"].sum(),
-    "ml500": df["ml500"].sum(),
-    "ml1l": df["ml1l"].sum(),
-    "ml5l": df["ml5l"].sum(),
-    "ml10l": df["ml10l"].sum(),
-}
-
-st.header("📈 Current Balance")
-
-cols = st.columns(6)
-labels = ["100ml","200ml","500ml","1L","5L","10L"]
-
-for i,key in enumerate(balance):
-    cols[i].metric(labels[i], balance[key])
-
-# ======================
-# LOW STOCK WARNING
-# ======================
-st.header("⚠️ Low Stock Alert")
-
-for k,v in balance.items():
-    if v < 5:
-        st.warning(f"{k} stock is low!")
-
-# ======================
-# SALE ENTRY (WITH CHECK)
-# ======================
-st.header("🛒 Sale")
-
-name = st.text_input("Customer")
-
-s1,s2,s3,s4,s5,s6 = st.columns(6)
-
-sell = [
-    s1.number_input("100ml",0),
-    s2.number_input("200ml",0),
-    s3.number_input("500ml",0),
-    s4.number_input("1L",0),
-    s5.number_input("5L",0),
-    s6.number_input("10L",0)
-]
-
-if st.button("Add Sale"):
-    if not name:
-        st.warning("Enter name")
-    else:
-        # check stock
-        ok = True
-        keys = list(balance.keys())
-
-        for i in range(6):
-            if sell[i] > balance[keys[i]]:
-                st.error(f"Not enough stock for {labels[i]}")
-                ok = False
-                break
-
-        if ok:
-            neg = [-x for x in sell]
-            c.execute("""
-            INSERT INTO ghee (datetime, person, ml100, ml200, ml500, ml1l, ml5l, ml10l, user)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (datetime.now(), name, *neg, st.session_state.user))
-            conn.commit()
-            st.success("Sale Added")
-
-# ======================
-# TABLE
-# ======================
 st.header("📊 Records")
 st.dataframe(df, use_container_width=True)
 
 # ======================
-# CHART
+# BALANCE
 # ======================
-st.header("📊 Sales Chart")
+st.header("📈 Balance")
 
-chart_df = df.copy()
-chart_df = chart_df.groupby(chart_df["datetime"].dt.date).sum()
+b100 = df["ml100"].sum()
+b200 = df["ml200"].sum()
+b500 = df["ml500"].sum()
+b1l  = df["ml1l"].sum()
+b5l  = df["ml5l"].sum()
+b10l = df["ml10l"].sum()
 
-st.line_chart(chart_df[["ml100","ml200","ml500","ml1l","ml5l","ml10l"]])
+c1, c2, c3, c4, c5, c6 = st.columns(6)
+
+c1.metric("100ml", b100)
+c2.metric("200ml", b200)
+c3.metric("500ml", b500)
+c4.metric("1L", b1l)
+c5.metric("5L", b5l)
+c6.metric("10L", b10l)
 
 # ======================
 # DOWNLOAD
@@ -233,10 +207,15 @@ st.header("⬇️ Download")
 
 if not df.empty:
     output = io.BytesIO()
+
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df.to_excel(writer, index=False)
 
-    st.download_button("Download Excel", output.getvalue(), "ghee.xlsx")
+    st.download_button(
+        "Download Excel",
+        output.getvalue(),
+        "ghee_data.xlsx"
+    )
 
 # ======================
 # LOGOUT
