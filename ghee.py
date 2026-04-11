@@ -13,7 +13,6 @@ st.set_page_config(page_title="Mercy Ghee", layout="wide")
 conn = sqlite3.connect("ghee_app.db", check_same_thread=False)
 c = conn.cursor()
 
-# USERS TABLE
 c.execute("""
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -22,7 +21,6 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
-# GHEE TABLE (UPDATED)
 c.execute("""
 CREATE TABLE IF NOT EXISTS ghee (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,6 +34,8 @@ CREATE TABLE IF NOT EXISTS ghee (
     ml1l INTEGER,
     ml5l INTEGER,
     ml16_5l INTEGER,
+    cash REAL,
+    balance REAL,
     user TEXT
 )
 """)
@@ -112,12 +112,11 @@ a16  = c6.number_input("16.5L",0)
 
 if st.button("Add Stock"):
     c.execute("""
-    INSERT INTO ghee VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?)
+    INSERT INTO ghee VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
-        datetime.now(),
-        "Stock",
-        "", "",
+        datetime.now(),"Stock","","",
         a100,a200,a500,a1l,a5l,a16,
+        0,0,
         st.session_state.user
     ))
     conn.commit()
@@ -129,8 +128,11 @@ if st.button("Add Stock"):
 st.header("🛒 Sale Entry")
 
 name = st.text_input("Customer Name")
-phone = st.text_input("Phone Number")
+phone = st.text_input("Phone")
 place = st.text_input("Place")
+
+cash = st.number_input("Cash Received",0.0)
+balance_amt = st.number_input("Balance (Credit)",0.0)
 
 s1,s2,s3,s4,s5,s6 = st.columns(6)
 
@@ -146,13 +148,12 @@ if st.button("Add Sale"):
         st.warning("Enter name")
     else:
         c.execute("""
-        INSERT INTO ghee VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?)
+        INSERT INTO ghee VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             datetime.now(),
-            name,
-            phone,
-            place,
+            name,phone,place,
             -s100,-s200,-s500,-s1l,-s5l,-s16,
+            cash,balance_amt,
             st.session_state.user
         ))
         conn.commit()
@@ -164,8 +165,8 @@ if st.button("Add Sale"):
 st.header("🔄 Return Entry")
 
 r_name = st.text_input("Customer Name (Return)")
-r_phone = st.text_input("Phone (Return)")
-r_place = st.text_input("Place (Return)")
+r_cash = st.number_input("Cash Returned",0.0)
+r_balance = st.number_input("Balance Adjust",0.0)
 
 r1,r2,r3,r4,r5,r6 = st.columns(6)
 
@@ -181,13 +182,12 @@ if st.button("Add Return"):
         st.warning("Enter name")
     else:
         c.execute("""
-        INSERT INTO ghee VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?)
+        INSERT INTO ghee VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
             datetime.now(),
-            f"🔄 Return - {r_name}",
-            r_phone,
-            r_place,
+            f"🔄 Return - {r_name}","","",
             r100,r200,r500,r1l,r5l,r16,
+            -r_cash,-r_balance,
             st.session_state.user
         ))
         conn.commit()
@@ -204,17 +204,26 @@ st.dataframe(df, use_container_width=True)
 # ======================
 # BALANCE
 # ======================
-st.header("📈 Balance")
+st.header("📈 Stock Balance")
 
 cols = ["ml100","ml200","ml500","ml1l","ml5l","ml16_5l"]
-vals = [df[c].sum() for c in cols]
-
 labels = ["100ml","200ml","500ml","1L","5L","16.5L"]
 
 c1,c2,c3,c4,c5,c6 = st.columns(6)
 
 for i in range(6):
-    [c1,c2,c3,c4,c5,c6][i].metric(labels[i], vals[i])
+    [c1,c2,c3,c4,c5,c6][i].metric(labels[i], df[cols[i]].sum())
+
+# ======================
+# CASH SUMMARY
+# ======================
+st.header("💰 Cash Summary")
+
+total_cash = df["cash"].sum()
+total_balance = df["balance"].sum()
+
+st.metric("Total Cash", total_cash)
+st.metric("Total Balance (Credit)", total_balance)
 
 # ======================
 # DOWNLOAD
