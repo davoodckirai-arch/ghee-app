@@ -13,6 +13,7 @@ st.set_page_config(page_title="Mercy Ghee", layout="wide")
 conn = sqlite3.connect("ghee_app.db", check_same_thread=False)
 c = conn.cursor()
 
+# USERS TABLE
 c.execute("""
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -21,6 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
+# GHEE TABLE (UPDATED 16.5L)
 c.execute("""
 CREATE TABLE IF NOT EXISTS ghee (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,7 +33,7 @@ CREATE TABLE IF NOT EXISTS ghee (
     ml500 INTEGER,
     ml1l INTEGER,
     ml5l INTEGER,
-    ml10l INTEGER,
+    ml16_5l INTEGER,
     user TEXT
 )
 """)
@@ -39,7 +41,7 @@ CREATE TABLE IF NOT EXISTS ghee (
 conn.commit()
 
 # ======================
-# PASSWORD HASH
+# HASH
 # ======================
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -107,7 +109,7 @@ if not st.session_state.logged_in:
     st.stop()
 
 # ======================
-# MAIN APP
+# MAIN
 # ======================
 st.title("🧈 Mercy Ghee Management System")
 st.sidebar.success(f"👤 {st.session_state.user}")
@@ -124,7 +126,7 @@ add_200 = c2.number_input("200ml", 0, key="a200")
 add_500 = c3.number_input("500ml", 0, key="a500")
 add_1l  = c4.number_input("1L", 0, key="a1l")
 add_5l  = c5.number_input("5L", 0, key="a5l")
-add_10l = c6.number_input("10L", 0, key="a10l")
+add_16  = c6.number_input("16.5L", 0, key="a16")
 
 if st.button("Add Stock"):
     c.execute("""
@@ -133,7 +135,7 @@ if st.button("Add Stock"):
         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "Stock Added",
         add_100, add_200, add_500,
-        add_1l, add_5l, add_10l,
+        add_1l, add_5l, add_16,
         st.session_state.user
     ))
     conn.commit()
@@ -153,7 +155,7 @@ s_200 = s2.number_input("Sell 200ml", 0, key="s200")
 s_500 = s3.number_input("Sell 500ml", 0, key="s500")
 s_1l  = s4.number_input("Sell 1L", 0, key="s1l")
 s_5l  = s5.number_input("Sell 5L", 0, key="s5l")
-s_10l = s6.number_input("Sell 10L", 0, key="s10l")
+s_16  = s6.number_input("Sell 16.5L", 0, key="s16")
 
 if st.button("Add Sale"):
     if person == "":
@@ -165,31 +167,39 @@ if st.button("Add Sale"):
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             person,
             -s_100, -s_200, -s_500,
-            -s_1l, -s_5l, -s_10l,
+            -s_1l, -s_5l, -s_16,
             st.session_state.user
         ))
         conn.commit()
         st.success("Sale Added")
 
 # ======================
-# DATA
+# LOAD DATA
 # ======================
 df = pd.read_sql_query("SELECT * FROM ghee", conn)
 
+# SAFE COLUMNS (important)
+for col in ["ml100","ml200","ml500","ml1l","ml5l","ml16_5l"]:
+    if col not in df.columns:
+        df[col] = 0
+
+# ======================
+# RECORDS
+# ======================
 st.header("📊 Records")
 st.dataframe(df, use_container_width=True)
 
 # ======================
 # BALANCE
 # ======================
-st.header("📈 Balance")
+st.header("📈 Current Balance")
 
 b100 = df["ml100"].sum()
 b200 = df["ml200"].sum()
 b500 = df["ml500"].sum()
 b1l  = df["ml1l"].sum()
 b5l  = df["ml5l"].sum()
-b10l = df["ml10l"].sum()
+b16  = df["ml16_5l"].sum()
 
 c1, c2, c3, c4, c5, c6 = st.columns(6)
 
@@ -198,7 +208,7 @@ c2.metric("200ml", b200)
 c3.metric("500ml", b500)
 c4.metric("1L", b1l)
 c5.metric("5L", b5l)
-c6.metric("10L", b10l)
+c6.metric("16.5L", b16)
 
 # ======================
 # DOWNLOAD
