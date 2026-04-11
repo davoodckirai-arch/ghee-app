@@ -8,7 +8,7 @@ import io
 st.set_page_config(page_title="Mercy Ghee", layout="wide")
 
 # ======================
-# DATABASE SETUP (USERS + DATA)
+# DATABASE SETUP
 # ======================
 conn = sqlite3.connect("ghee_app.db", check_same_thread=False)
 c = conn.cursor()
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
-# GHEE DATA TABLE
+# GHEE TABLE (UPDATED)
 c.execute("""
 CREATE TABLE IF NOT EXISTS ghee (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -32,9 +32,12 @@ CREATE TABLE IF NOT EXISTS ghee (
     ml200 INTEGER,
     ml500 INTEGER,
     ml1l INTEGER,
+    ml5l INTEGER,
+    ml10l INTEGER,
     user TEXT
 )
 """)
+
 conn.commit()
 
 # ======================
@@ -90,7 +93,7 @@ def login():
             st.error("Invalid credentials")
 
 # ======================
-# SESSION CHECK
+# SESSION
 # ======================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
@@ -109,7 +112,6 @@ if not st.session_state.logged_in:
 # MAIN APP
 # ======================
 st.title("🧈 Mercy Ghee Management System")
-
 st.sidebar.success(f"👤 Logged in: {st.session_state.user}")
 
 # ======================
@@ -117,17 +119,19 @@ st.sidebar.success(f"👤 Logged in: {st.session_state.user}")
 # ======================
 st.header("➕ Add Stock")
 
-c1, c2, c3, c4 = st.columns(4)
+c1, c2, c3, c4, c5, c6 = st.columns(6)
 
 add_100 = c1.number_input("100ml", min_value=0, step=1)
 add_200 = c2.number_input("200ml", min_value=0, step=1)
 add_500 = c3.number_input("500ml", min_value=0, step=1)
 add_1l  = c4.number_input("1L", min_value=0, step=1)
+add_5l  = c5.number_input("5L", min_value=0, step=1)
+add_10l = c6.number_input("10L", min_value=0, step=1)
 
 if st.button("Add Stock"):
     c.execute("""
-        INSERT INTO ghee (datetime, person, ml100, ml200, ml500, ml1l, user)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO ghee (datetime, person, ml100, ml200, ml500, ml1l, ml5l, ml10l, user)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "Stock Added",
@@ -135,6 +139,8 @@ if st.button("Add Stock"):
         add_200,
         add_500,
         add_1l,
+        add_5l,
+        add_10l,
         st.session_state.user
     ))
     conn.commit()
@@ -147,20 +153,22 @@ st.header("🛒 Sale Entry")
 
 person = st.text_input("Customer Name")
 
-s1, s2, s3, s4 = st.columns(4)
+s1, s2, s3, s4, s5, s6 = st.columns(6)
 
 s_100 = s1.number_input("Sell 100ml", min_value=0, step=1)
 s_200 = s2.number_input("Sell 200ml", min_value=0, step=1)
 s_500 = s3.number_input("Sell 500ml", min_value=0, step=1)
 s_1l  = s4.number_input("Sell 1L", min_value=0, step=1)
+s_5l  = s5.number_input("Sell 5L", min_value=0, step=1)
+s_10l = s6.number_input("Sell 10L", min_value=0, step=1)
 
 if st.button("Add Sale"):
     if person.strip() == "":
         st.warning("⚠️ Enter customer name")
     else:
         c.execute("""
-            INSERT INTO ghee (datetime, person, ml100, ml200, ml500, ml1l, user)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO ghee (datetime, person, ml100, ml200, ml500, ml1l, ml5l, ml10l, user)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             person,
@@ -168,6 +176,8 @@ if st.button("Add Sale"):
             -s_200,
             -s_500,
             -s_1l,
+            -s_5l,
+            -s_10l,
             st.session_state.user
         ))
         conn.commit()
@@ -193,13 +203,17 @@ b100 = df["ml100"].sum()
 b200 = df["ml200"].sum()
 b500 = df["ml500"].sum()
 b1l  = df["ml1l"].sum()
+b5l  = df["ml5l"].sum()
+b10l = df["ml10l"].sum()
 
-c1, c2, c3, c4 = st.columns(4)
+c1, c2, c3, c4, c5, c6 = st.columns(6)
 
 c1.metric("100ml", b100)
 c2.metric("200ml", b200)
 c3.metric("500ml", b500)
 c4.metric("1L", b1l)
+c5.metric("5L", b5l)
+c6.metric("10L", b10l)
 
 # ======================
 # DOWNLOAD EXCEL
