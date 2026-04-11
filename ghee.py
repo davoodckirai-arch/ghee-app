@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS users (
 )
 """)
 
-# GHEE TABLE (UPDATED 16.5L)
+# GHEE TABLE
 c.execute("""
 CREATE TABLE IF NOT EXISTS ghee (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -174,11 +174,43 @@ if st.button("Add Sale"):
         st.success("Sale Added")
 
 # ======================
+# RETURN ENTRY
+# ======================
+st.header("🔄 Return Entry")
+
+r_person = st.text_input("Customer Name (Return)", key="rname")
+
+r1, r2, r3, r4, r5, r6 = st.columns(6)
+
+r_100 = r1.number_input("Return 100ml", 0, key="r100")
+r_200 = r2.number_input("Return 200ml", 0, key="r200")
+r_500 = r3.number_input("Return 500ml", 0, key="r500")
+r_1l  = r4.number_input("Return 1L", 0, key="r1l")
+r_5l  = r5.number_input("Return 5L", 0, key="r5l")
+r_16  = r6.number_input("Return 16.5L", 0, key="r16")
+
+if st.button("Add Return"):
+    if r_person == "":
+        st.warning("Enter customer name")
+    else:
+        c.execute("""
+            INSERT INTO ghee VALUES (NULL,?,?,?,?,?,?,?,?,?)
+        """, (
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            f"🔄 Return - {r_person}",
+            r_100, r_200, r_500,
+            r_1l, r_5l, r_16,
+            st.session_state.user
+        ))
+        conn.commit()
+        st.success("Return Added")
+
+# ======================
 # LOAD DATA
 # ======================
 df = pd.read_sql_query("SELECT * FROM ghee", conn)
 
-# SAFE COLUMNS (important)
+# SAFE COLUMNS
 for col in ["ml100","ml200","ml500","ml1l","ml5l","ml16_5l"]:
     if col not in df.columns:
         df[col] = 0
