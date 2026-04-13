@@ -95,6 +95,16 @@ st.title("🧈 Mercy Ghee Management System")
 st.sidebar.success(f"👤 {st.session_state.user}")
 
 # ======================
+# DATE SELECT
+# ======================
+st.sidebar.header("📅 Select Date & Time")
+
+selected_date = st.sidebar.date_input("Select Date")
+selected_time = st.sidebar.time_input("Select Time")
+
+selected_datetime = datetime.combine(selected_date, selected_time)
+
+# ======================
 # ADD STOCK
 # ======================
 st.header("➕ Add Stock")
@@ -112,7 +122,7 @@ if st.button("Add Stock"):
     c.execute("""
     INSERT INTO ghee VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
-        datetime.now(),"Stock","","",
+        selected_datetime,"Stock","","",
         a100,a200,a500,a1l,a5l,a16,
         0,0,
         st.session_state.user
@@ -148,7 +158,7 @@ if st.button("Add Sale"):
         c.execute("""
         INSERT INTO ghee VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)
         """, (
-            datetime.now(),
+            selected_datetime,
             name,phone,place,
             -s100,-s200,-s500,-s1l,-s5l,-s16,
             cash,balance_amt,
@@ -158,11 +168,10 @@ if st.button("Add Sale"):
         st.success("Sale Added")
 
 # ======================
-# RETURN
+# RETURN (UPDATED)
 # ======================
 st.header("🔄 Return Entry")
 
-r_name = st.text_input("Customer Name (Return)", key="r_name")
 r_cash = st.number_input("Cash Returned",0.0,key="r_cash")
 r_balance = st.number_input("Balance Adjust",0.0,key="r_bal")
 
@@ -176,20 +185,17 @@ r5l  = r5.number_input("5L",0,key="r5l")
 r16  = r6.number_input("16.5L",0,key="r16")
 
 if st.button("Add Return"):
-    if not r_name:
-        st.warning("Enter name")
-    else:
-        c.execute("""
-        INSERT INTO ghee VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)
-        """, (
-            datetime.now(),
-            f"🔄 Return - {r_name}","","",
-            r100,r200,r500,r1l,r5l,r16,
-            -r_cash,-r_balance,
-            st.session_state.user
-        ))
-        conn.commit()
-        st.success("Return Added")
+    c.execute("""
+    INSERT INTO ghee VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """, (
+        selected_datetime,
+        "Return","", "",
+        r100,r200,r500,r1l,r5l,r16,
+        -r_cash,-r_balance,
+        st.session_state.user
+    ))
+    conn.commit()
+    st.success("Return Added")
 
 # ======================
 # DATA
@@ -200,7 +206,7 @@ st.header("📊 Records")
 st.dataframe(df, use_container_width=True)
 
 # ======================
-# BALANCE
+# STOCK BALANCE
 # ======================
 st.header("📈 Stock Balance")
 
