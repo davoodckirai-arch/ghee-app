@@ -95,13 +95,10 @@ st.title("🧈 Mercy Ghee Management System")
 st.sidebar.success(f"👤 {st.session_state.user}")
 
 # ======================
-# DATE SELECT
+# DATE
 # ======================
-st.sidebar.header("📅 Select Date & Time")
-
-selected_date = st.sidebar.date_input("Select Date")
-selected_time = st.sidebar.time_input("Select Time")
-
+selected_date = st.sidebar.date_input("Date")
+selected_time = st.sidebar.time_input("Time")
 selected_datetime = datetime.combine(selected_date, selected_time)
 
 # ======================
@@ -168,45 +165,50 @@ if st.button("Add Sale"):
         st.success("Sale Added")
 
 # ======================
-# RETURN (UPDATED)
+# BALANCE COLLECTION (NEW)
 # ======================
-st.header("🔄 Return Entry")
+st.header("💳 Balance Collection")
 
-r_cash = st.number_input("Cash Returned",0.0,key="r_cash")
-r_balance = st.number_input("Balance Adjust",0.0,key="r_bal")
+collected = st.number_input("Collected Amount",0.0)
 
-r1,r2,r3,r4,r5,r6 = st.columns(6)
-
-r100 = r1.number_input("100ml",0,key="r100")
-r200 = r2.number_input("200ml",0,key="r200")
-r500 = r3.number_input("500ml",0,key="r500")
-r1l  = r4.number_input("1L",0,key="r1l")
-r5l  = r5.number_input("5L",0,key="r5l")
-r16  = r6.number_input("16.5L",0,key="r16")
-
-if st.button("Add Return"):
+if st.button("Add Collection"):
     c.execute("""
     INSERT INTO ghee VALUES (NULL,?,?,?,?,?,?,?,?,?,?,?,?,?)
     """, (
         selected_datetime,
-        "Return","", "",
-        r100,r200,r500,r1l,r5l,r16,
-        -r_cash,-r_balance,
+        "Balance Paid","","",
+        0,0,0,0,0,0,
+        collected,-collected,
         st.session_state.user
     ))
     conn.commit()
-    st.success("Return Added")
+    st.success("Balance Updated")
 
 # ======================
-# DATA
+# DELETE RECORD
 # ======================
+st.header("🗑️ Delete Record")
+
 df = pd.read_sql_query("SELECT * FROM ghee", conn)
 
+if not df.empty:
+    record_id = st.selectbox("Select Record ID", df["id"])
+    
+    if st.button("Delete"):
+        c.execute("DELETE FROM ghee WHERE id=?", (record_id,))
+        conn.commit()
+        st.success("Deleted Successfully")
+        st.rerun()
+
+# ======================
+# SHOW DATA
+# ======================
 st.header("📊 Records")
+df = pd.read_sql_query("SELECT * FROM ghee", conn)
 st.dataframe(df, use_container_width=True)
 
 # ======================
-# STOCK BALANCE
+# STOCK
 # ======================
 st.header("📈 Stock Balance")
 
