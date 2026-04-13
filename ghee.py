@@ -4,7 +4,6 @@ import pandas as pd
 from datetime import datetime
 import hashlib
 import io
-import os
 
 st.set_page_config(page_title="Mercy Ghee", layout="wide")
 
@@ -52,31 +51,34 @@ CREATE TABLE IF NOT EXISTS ghee (
 conn.commit()
 
 # ======================
-# HASH
+# HASH PASSWORD
 # ======================
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 # ======================
-# AUTH
+# LOGIN / REGISTER
 # ======================
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+
 def register():
     st.subheader("📝 Register")
-    u = st.text_input("Username", key="reg_u")
-    p = st.text_input("Password", type="password", key="reg_p")
+    u = st.text_input("Username", key="ru")
+    p = st.text_input("Password", type="password", key="rp")
 
     if st.button("Register"):
         try:
             c.execute("INSERT INTO users VALUES (NULL,%s,%s)", (u, hash_password(p)))
             conn.commit()
-            st.success("Account created")
+            st.success("Account Created")
         except:
-            st.error("Username exists")
+            st.error("Username already exists")
 
 def login():
     st.subheader("🔐 Login")
-    u = st.text_input("Username", key="log_u")
-    p = st.text_input("Password", key="log_p")
+    u = st.text_input("Username", key="lu")
+    p = st.text_input("Password", type="password", key="lp")
 
     if st.button("Login"):
         c.execute("SELECT * FROM users WHERE username=%s AND password=%s", (u, hash_password(p)))
@@ -85,21 +87,18 @@ def login():
             st.session_state.user = u
             st.rerun()
         else:
-            st.error("Invalid login")
-
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+            st.error("Invalid Login")
 
 if not st.session_state.logged_in:
-    m = st.sidebar.selectbox("Menu", ["Login", "Register"])
-    if m == "Register":
+    menu = st.sidebar.selectbox("Menu", ["Login", "Register"])
+    if menu == "Register":
         register()
     else:
         login()
     st.stop()
 
 # ======================
-# MAIN
+# MAIN UI
 # ======================
 st.title("🧈 Mercy Ghee Management System")
 st.sidebar.success(f"👤 {st.session_state.user}")
@@ -107,9 +106,9 @@ st.sidebar.success(f"👤 {st.session_state.user}")
 # ======================
 # DATE
 # ======================
-selected_date = st.sidebar.date_input("Date")
-selected_time = st.sidebar.time_input("Time")
-selected_datetime = datetime.combine(selected_date, selected_time)
+date = st.sidebar.date_input("Date")
+time = st.sidebar.time_input("Time")
+dt = datetime.combine(date, time)
 
 # ======================
 # ADD STOCK
@@ -129,7 +128,7 @@ if st.button("Add Stock"):
     c.execute("""
     INSERT INTO ghee VALUES (NULL,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
     """, (
-        str(selected_datetime),"Stock","","",
+        str(dt),"Stock","","",
         a100,a200,a500,a1l,a5l,a16,
         0,0,
         st.session_state.user
@@ -147,7 +146,7 @@ phone = st.text_input("Phone")
 place = st.text_input("Place")
 
 cash = st.number_input("Cash Received",0.0)
-balance_amt = st.number_input("Balance",0.0)
+balance = st.number_input("Balance",0.0)
 
 s1,s2,s3,s4,s5,s6 = st.columns(6)
 
@@ -163,17 +162,17 @@ if st.button("Add Sale"):
         c.execute("""
         INSERT INTO ghee VALUES (NULL,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
         """, (
-            str(selected_datetime),
+            str(dt),
             name,phone,place,
             -s100,-s200,-s500,-s1l,-s5l,-s16,
-            cash,balance_amt,
+            cash,balance,
             st.session_state.user
         ))
         conn.commit()
         st.success("Sale Added")
 
 # ======================
-# DATA VIEW
+# DATA
 # ======================
 st.header("📊 Records")
 
@@ -193,4 +192,31 @@ st.dataframe(df, use_container_width=True)
 # ======================
 st.header("📈 Stock Balance")
 
-for col in ["ml100","ml200","ml500","ml1l","ml5l
+cols = ["ml100","ml200","ml500","ml1l","ml5l","ml16_5l"]
+
+for col in cols:
+    st.metric(col, df[col].sum())
+
+# ======================
+# CASH
+# ======================
+st.header("💰 Cash Summary")
+
+st.metric("Total Cash", df["cash"].sum())
+st.metric("Total Balance", df["balance"].sum())
+
+# ======================
+# DOWNLOAD
+# ======================
+output = io.BytesIO()
+with pd.ExcelWriter(output, engine="openpyxl") as writer:
+    df.to_excel(writer, index=False)
+
+st.download_button("⬇ Download Excel", output.getvalue(), "ghee.xlsx")
+
+# ======================
+# LOGOUT
+# ======================
+if st.sidebar.button("Logout"):
+    st.session_state.logged_in = False
+    st.rerun()
