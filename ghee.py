@@ -4,22 +4,23 @@ import pandas as pd
 from datetime import datetime
 import hashlib
 import io
+import os
 
 st.set_page_config(page_title="Mercy Ghee", layout="wide")
 
 # ======================
-# MYSQL CONNECTION
+# MYSQL CONNECTION (CLOUD SAFE)
 # ======================
 conn = mysql.connector.connect(
-    host="localhost",        # change if online DB
-    user="root",
-    password="1234",
-    database="ghee_db"
+    host=st.secrets["DB_HOST"],
+    user=st.secrets["DB_USER"],
+    password=st.secrets["DB_PASS"],
+    database=st.secrets["DB_NAME"]
 )
 c = conn.cursor()
 
 # ======================
-# CREATE TABLES
+# TABLES
 # ======================
 c.execute("""
 CREATE TABLE IF NOT EXISTS users (
@@ -65,35 +66,36 @@ def register():
     p = st.text_input("Password", type="password", key="reg_p")
 
     if st.button("Register"):
-        if u and p:
-            try:
-                c.execute("INSERT INTO users VALUES (NULL,%s,%s)",(u,hash_password(p)))
-                conn.commit()
-                st.success("Account created")
-            except:
-                st.error("Username exists")
+        try:
+            c.execute("INSERT INTO users VALUES (NULL,%s,%s)", (u, hash_password(p)))
+            conn.commit()
+            st.success("Account created")
+        except:
+            st.error("Username exists")
 
 def login():
     st.subheader("🔐 Login")
     u = st.text_input("Username", key="log_u")
-    p = st.text_input("Password", type="password", key="log_p")
+    p = st.text_input("Password", key="log_p")
 
     if st.button("Login"):
-        c.execute("SELECT * FROM users WHERE username=%s AND password=%s",(u,hash_password(p)))
+        c.execute("SELECT * FROM users WHERE username=%s AND password=%s", (u, hash_password(p)))
         if c.fetchone():
-            st.session_state.logged_in=True
-            st.session_state.user=u
+            st.session_state.logged_in = True
+            st.session_state.user = u
             st.rerun()
         else:
             st.error("Invalid login")
 
 if "logged_in" not in st.session_state:
-    st.session_state.logged_in=False
+    st.session_state.logged_in = False
 
 if not st.session_state.logged_in:
-    m = st.sidebar.selectbox("Menu",["Login","Register"])
-    if m=="Register": register()
-    else: login()
+    m = st.sidebar.selectbox("Menu", ["Login", "Register"])
+    if m == "Register":
+        register()
+    else:
+        login()
     st.stop()
 
 # ======================
@@ -116,12 +118,12 @@ st.header("➕ Add Stock")
 
 c1,c2,c3,c4,c5,c6 = st.columns(6)
 
-a100 = c1.number_input("100ml",0,key="a100")
-a200 = c2.number_input("200ml",0,key="a200")
-a500 = c3.number_input("500ml",0,key="a500")
-a1l  = c4.number_input("1L",0,key="a1l")
-a5l  = c5.number_input("5L",0,key="a5l")
-a16  = c6.number_input("16.5L",0,key="a16")
+a100 = c1.number_input("100ml",0)
+a200 = c2.number_input("200ml",0)
+a500 = c3.number_input("500ml",0)
+a1l  = c4.number_input("1L",0)
+a5l  = c5.number_input("5L",0)
+a16  = c6.number_input("16.5L",0)
 
 if st.button("Add Stock"):
     c.execute("""
@@ -140,21 +142,21 @@ if st.button("Add Stock"):
 # ======================
 st.header("🛒 Sale Entry")
 
-name = st.text_input("Customer Name", key="s_name")
-phone = st.text_input("Phone", key="s_phone")
-place = st.text_input("Place", key="s_place")
+name = st.text_input("Customer Name")
+phone = st.text_input("Phone")
+place = st.text_input("Place")
 
-cash = st.number_input("Cash Received",0.0,key="s_cash")
-balance_amt = st.number_input("Balance",0.0,key="s_bal")
+cash = st.number_input("Cash Received",0.0)
+balance_amt = st.number_input("Balance",0.0)
 
 s1,s2,s3,s4,s5,s6 = st.columns(6)
 
-s100 = s1.number_input("100ml",0,key="s100")
-s200 = s2.number_input("200ml",0,key="s200")
-s500 = s3.number_input("500ml",0,key="s500")
-s1l  = s4.number_input("1L",0,key="s1l")
-s5l  = s5.number_input("5L",0,key="s5l")
-s16  = s6.number_input("16.5L",0,key="s16")
+s100 = s1.number_input("100ml",0)
+s200 = s2.number_input("200ml",0)
+s500 = s3.number_input("500ml",0)
+s1l  = s4.number_input("1L",0)
+s5l  = s5.number_input("5L",0)
+s16  = s6.number_input("16.5L",0)
 
 if st.button("Add Sale"):
     if name:
@@ -177,6 +179,7 @@ st.header("📊 Records")
 
 c.execute("SELECT * FROM ghee")
 rows = c.fetchall()
+
 df = pd.DataFrame(rows, columns=[
     "id","datetime","person","phone","place",
     "ml100","ml200","ml500","ml1l","ml5l","ml16_5l",
@@ -186,26 +189,8 @@ df = pd.DataFrame(rows, columns=[
 st.dataframe(df, use_container_width=True)
 
 # ======================
-# STOCK
+# STOCK BALANCE
 # ======================
 st.header("📈 Stock Balance")
 
-for col in ["ml100","ml200","ml500","ml1l","ml5l","ml16_5l"]:
-    st.metric(col, df[col].sum())
-
-# ======================
-# CASH
-# ======================
-st.header("💰 Cash Summary")
-
-st.metric("Total Cash", df["cash"].sum())
-st.metric("Total Balance", df["balance"].sum())
-
-# ======================
-# DOWNLOAD
-# ======================
-output = io.BytesIO()
-with pd.ExcelWriter(output, engine="openpyxl") as writer:
-    df.to_excel(writer, index=False)
-
-st.download_button("Download Excel", output.getvalue(), "ghee.xlsx")
+for col in ["ml100","ml200","ml500","ml1l","ml5l
