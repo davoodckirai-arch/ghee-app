@@ -8,14 +8,17 @@ import io
 st.set_page_config(page_title="Mercy Ghee", layout="wide")
 
 # ======================
-# MYSQL CONNECTION (CLOUD SAFE)
+# MYSQL CONNECTION (RAILWAY SAFE)
 # ======================
-conn = mysql.connector.connect(
-    host=st.secrets["DB_HOST"],
-    user=st.secrets["DB_USER"],
-    password=st.secrets["DB_PASS"],
-    database=st.secrets["DB_NAME"]
-)
+def get_connection():
+    return mysql.connector.connect(
+        host=st.secrets["DB_HOST"],
+        user=st.secrets["DB_USER"],
+        password=st.secrets["DB_PASS"],
+        database=st.secrets["DB_NAME"]
+    )
+
+conn = get_connection()
 c = conn.cursor()
 
 # ======================
@@ -51,37 +54,28 @@ CREATE TABLE IF NOT EXISTS ghee (
 conn.commit()
 
 # ======================
-# HASH PASSWORD
+# HASH
 # ======================
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
+def hash_password(p):
+    return hashlib.sha256(p.encode()).hexdigest()
 
 # ======================
-# LOGIN / REGISTER
+# SESSION
 # ======================
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
-def register():
-    st.subheader("📝 Register")
-    u = st.text_input("Username", key="ru")
-    p = st.text_input("Password", type="password", key="rp")
-
-    if st.button("Register"):
-        try:
-            c.execute("INSERT INTO users VALUES (NULL,%s,%s)", (u, hash_password(p)))
-            conn.commit()
-            st.success("Account Created")
-        except:
-            st.error("Username already exists")
-
+# ======================
+# LOGIN
+# ======================
 def login():
     st.subheader("🔐 Login")
-    u = st.text_input("Username", key="lu")
-    p = st.text_input("Password", type="password", key="lp")
+    u = st.text_input("Username")
+    p = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        c.execute("SELECT * FROM users WHERE username=%s AND password=%s", (u, hash_password(p)))
+        c.execute("SELECT * FROM users WHERE username=%s AND password=%s",
+                  (u, hash_password(p)))
         if c.fetchone():
             st.session_state.logged_in = True
             st.session_state.user = u
@@ -89,18 +83,35 @@ def login():
         else:
             st.error("Invalid Login")
 
-if not st.session_state.logged_in:
-    menu = st.sidebar.selectbox("Menu", ["Login", "Register"])
-    if menu == "Register":
-        register()
-    else:
-        login()
-    st.stop()
+# ======================
+# REGISTER
+# ======================
+def register():
+    st.subheader("📝 Register")
+    u = st.text_input("Username", key="r1")
+    p = st.text_input("Password", type="password", key="r2")
+
+    if st.button("Register"):
+        try:
+            c.execute("INSERT INTO users VALUES (NULL,%s,%s)",
+                      (u, hash_password(p)))
+            conn.commit()
+            st.success("Account Created")
+        except:
+            st.error("Username Exists")
 
 # ======================
-# MAIN UI
+# AUTH
 # ======================
-st.title("🧈 Mercy Ghee Management System")
+if not st.session_state.logged_in:
+    menu = st.sidebar.selectbox("Menu", ["Login", "Register"])
+    if menu == "Login":
+        login()
+    else:
+        register()
+    st.stop()
+
+st.title("🧈 Mercy Ghee System")
 st.sidebar.success(f"👤 {st.session_state.user}")
 
 # ======================
@@ -145,7 +156,7 @@ name = st.text_input("Customer Name")
 phone = st.text_input("Phone")
 place = st.text_input("Place")
 
-cash = st.number_input("Cash Received",0.0)
+cash = st.number_input("Cash",0.0)
 balance = st.number_input("Balance",0.0)
 
 s1,s2,s3,s4,s5,s6 = st.columns(6)
@@ -188,20 +199,13 @@ df = pd.DataFrame(rows, columns=[
 st.dataframe(df, use_container_width=True)
 
 # ======================
-# STOCK BALANCE
+# STOCK + CASH
 # ======================
 st.header("📈 Stock Balance")
-
-cols = ["ml100","ml200","ml500","ml1l","ml5l","ml16_5l"]
-
-for col in cols:
+for col in ["ml100","ml200","ml500","ml1l","ml5l","ml16_5l"]:
     st.metric(col, df[col].sum())
 
-# ======================
-# CASH
-# ======================
 st.header("💰 Cash Summary")
-
 st.metric("Total Cash", df["cash"].sum())
 st.metric("Total Balance", df["balance"].sum())
 
